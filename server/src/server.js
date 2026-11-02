@@ -3,6 +3,7 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { authMiddleware } = require('./middleware/auth');
 const { realtimeServer } = require('./websocket/socketServer');
 
@@ -60,7 +61,19 @@ app.use('/api/activity-logs', activityLogsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/test-scenarios', testScenariosRouter);
 
-// 404 Handler
+// Serve static client bundle in production if built
+const clientDistPath = path.resolve(__dirname, '../../client/dist');
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io') || req.path.startsWith('/ws')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
+// 404 Handler for unhandled API requests
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'Endpoint not found', path: req.originalUrl });
 });

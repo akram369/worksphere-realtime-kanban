@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  worksphere-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: worksphere-prod
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - JWT_SECRET=${JWT_SECRET:-worksphere-enterprise-ultra-secure-jwt-secret-key-2026-prod}
+      - JWT_EXPIRES_IN=7d

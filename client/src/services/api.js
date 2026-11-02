@@ -35,6 +35,8 @@ export function setApiContext(userId, tenantId) {
   if (tenantId) setTenantContext(tenantId);
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export async function apiRequest(endpoint, options = {}) {
   const token = getAuthToken();
   const headers = {
@@ -49,7 +51,8 @@ export async function apiRequest(endpoint, options = {}) {
     headers
   };
 
-  const res = await fetch(endpoint, config);
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const res = await fetch(url, config);
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {

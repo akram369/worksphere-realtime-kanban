@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: worksphere-platform
+    env: node
+    plan: free
+    region: singapore
+    buildCommand: npm install --prefix server && npm install --prefix client && npm run --prefix client build && npx --prefix server prisma generate --schema server/prisma/schema.prisma
+    startCommand: node server/src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d

@@ -325,7 +325,8 @@ export function AppProvider({ children }) {
 
     setWsStatus('RECONNECTING');
 
-    const socket = io('/', {
+    const socketUrl = import.meta.env.VITE_API_BASE_URL || '/';
+    const socket = io(socketUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,

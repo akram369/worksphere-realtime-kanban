@@ -1,0 +1,178 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Organizations
+model Organization {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique
+  created_at  DateTime     @default(now())
+  
+  tenants     Tenant[]
+  memberships Membership[]
+
+  @@map("organizations")
+}
+
+// 2. Tenants (Branches within an Organization)
+model Tenant {
+  id          String        @id @default(uuid())
+  org_id      String
+  name        String
+  slug        String
+  created_at  DateTime      @default(now())
+
+  organization Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  memberships  Membership[]
+  boards       Board[]
+  columns      Column[]
+  tasks        Task[]
+  activity_logs ActivityLog[]
+
+  @@unique([org_id, slug])
+  @@index([org_id])
+  @@map("tenants")
+}
+
+// 3. Users
+model User {
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  password_hash String
+  avatar        String?
+  created_at    DateTime      @default(now())
+
+  memberships   Membership[]
+  assigned_tasks Task[]       @relation("TaskAssignee")
+  activity_logs ActivityLog[]
+
+  @@map("users")
+}
+
+// 4. Memberships (Role-Based Access Control)
+enum Role {
+  ORG_ADMIN
+  TENANT_ADMIN
+  MEMBER
+}
+
+model Membership {
+  id         String       @id @default(uuid())
+  user_id    String
+  org_id     String
+  tenant_id  String?      // NULL means Organization-wide access
+  role       Role         @default(MEMBER)
+  created_at DateTime     @default(now())
+
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  tenant       Tenant?      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, org_id, tenant_id])
+  @@index([user_id])
+  @@index([org_id])
+  @@index([tenant_id])
+  @@map("memberships")
+}
+
+// 5. Boards (Projects scoped strictly to a Tenant)
+model Board {
+  id          String        @id @default(uuid())
+  tenant_id   String
+  name        String
+  description String?
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @default(now()) @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  columns      Column[]
+  tasks        Task[]
+  activity_logs ActivityLog[]
+
+  @@index([tenant_id])
+  @@map("boards")
+}
+
+// 6. Columns (Workflow stages scoped to Board and Tenant)
+model Column {
+  id         String   @id @default(uuid())
+  board_id   String
+  tenant_id  String
+  title      String
+  position   Float
+  created_at DateTime @default(now())
+
+  board  Board  @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  tasks  Task[]
+
+  @@index([board_id, position])
+  @@index([tenant_id])
+  @@map("columns")
+}
+
+// 7. Tasks (Core unit of work with Optimistic Concurrency Control)
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  column_id   String
+  board_id    String
+  tenant_id   String
+  title       String
+  description String?
+  priority    Priority  @default(MEDIUM)
+  assignee_id String?
+  position    Float
+  version     Int       @default(1)
+  tags        String?   // JSON array string: e.g. '["Design", "Frontend"]'
+  due_date    String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now()) @updatedAt
+
+  column   Column  @relation(fields: [column_id], references: [id], onDelete: Cascade)
+  board    Board   @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  tenant   Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assignee User?   @relation("TaskAssignee", fields: [assignee_id], references: [id], onDelete: SetNull)
+
+  @@index([column_id, position])
+  @@index([board_id])
+  @@index([tenant_id])
+  @@index([assignee_id])
+  @@map("tasks")
+}
+
+// 8. Activity Logs (Audit trail scoped to Tenant)
+model ActivityLog {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  board_id    String?
+  user_id     String?
+  action_type String   // 'TASK_CREATED', 'TASK_MOVED', 'TASK_UPDATED', 'TASK_DELETED'
+  entity_type String   // 'TASK', 'COLUMN', 'BOARD'
+  entity_id   String
+  details     String   // JSON string of event payload / diff
+  created_at  DateTime @default(now())
+
+  tenant Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  board  Board?  @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, created_at(sort: Desc)])
+  @@index([board_id])
+  @@index([user_id])
+  @@map("activity_logs")
+}

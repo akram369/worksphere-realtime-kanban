@@ -1,0 +1,15 @@
+{
+  "name": "realtime-kanban-multi-tenant",
+  "version": "1.0.0",
+  "description": "Real-Time Collaborative Kanban Board (Multi-Organization + Multi-Tenant)",
+  "scripts": {
+    "server": "node server/src/server.js",
+    "server:dev": "node --watch server/src/server.js",
+    "client": "npm --prefix client run dev",
+    "seed": "node server/src/db/seed.js",
+    "test": "node server/tests/run-all-tests.js"
+  },
+  "keywords": ["kanban", "multi-tenant", "realtime", "websocket", "rbac"],
+  "author": "Antigravity",
+  "license": "MIT"
+}
